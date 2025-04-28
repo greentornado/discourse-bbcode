@@ -100,6 +100,11 @@ function setupMarkdownIt(md) {
   md.block.bbcode.ruler.push("hr", {
     tag: "hr",
     replace: function (state, tagInfo /*, content */) {
+
+      // **** ADD A DEBUG LOG HERE ****
+      console.log("--- HR BBCode Rule Matched ---", JSON.stringify(tagInfo));
+
+      
       let token = state.push('hr', 'hr', 0);
       token.markup = '[hr]'; // Basic markup ref
       token.map = [tagInfo.startLine, tagInfo.endLine];

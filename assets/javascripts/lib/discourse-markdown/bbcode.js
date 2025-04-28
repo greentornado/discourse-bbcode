@@ -95,6 +95,30 @@ function setupMarkdownIt(md) {
     wrap: "blockquote.indent",
   });
 
+
+  // **** ADD THE NEW [hr] RULE HERE ****
+  md.block.bbcode.ruler.push("hr", {
+    tag: "hr",
+    replace: function (state, tagInfo /*, content */) {
+      let token = state.push('hr', 'hr', 0);
+      token.markup = '[hr]'; // Basic markup ref
+      token.map = [tagInfo.startLine, tagInfo.endLine];
+
+      // *** NEW: Check for and add the style attribute ***
+      // Assumes the BBCode parser puts the value of style="..." into tagInfo.attrs.style
+      if (tagInfo.attrs && tagInfo.attrs.style) {
+        // The actual sanitization happens via the helper.allowList 'custom' function later
+        token.attrs = [['style', tagInfo.attrs.style]];
+        // Potentially update markup reference if needed
+        // token.markup = `[hr style="${tagInfo.attrs.style}"]`;
+      }
+      // *** END NEW ***
+
+      return true;
+    }
+  });
+  // **** END OF NEW RULE ****
+
   ["ot", "edit"].forEach((tag) => {
     md.block.bbcode.ruler.push("ot", {
       tag,
@@ -197,6 +221,10 @@ export function setup(helper) {
     "span.smallfont",
     "blockquote.indent",
     "ol[type=*]",
+    // Allow hr tag itself (already added)
+    "hr",
+    // *** IMPORTANT: Allow hr tag WITH a style attribute ***
+    "hr[style]"
   ]);
 
   helper.allowList({
@@ -210,6 +238,71 @@ export function setup(helper) {
       if (tag === "div" && name === "style") {
         return /^text-align:(center|left|right)$/.exec(value);
       }
+
+      // --- *** NEW: Allow specific styles for HR *** ---
+      if (tag === 'hr' && name === 'style') {
+        // 1. Define allowed CSS properties and regex for their valid values
+        const allowedProperties = {
+          // Color values: hex (#rgb, #rrggbb, #rrggbbaa), rgb(), rgba(), named colors
+          'color': /^(#[a-fA-F0-9]{3,8}|rgba?\([\d\s,.]+\)|[a-zA-Z]+)$/i,
+          'background-color': /^(#[a-fA-F0-9]{3,8}|rgba?\([\d\s,.]+\)|[a-zA-Z]+)$/i,
+          // Length/percentage values: px, %, em, rem (add other units if needed)
+          'height': /^\d+(\.\d+)?(px|%|em|rem)$/,
+          'width': /^\d+(\.\d+)?(px|%|em|rem)$/,
+          // Margin values: 1-4 length/percentage values or 'auto'
+          'margin': /^(-?\d+(\.\d+)?(px|%|em|rem|auto)\s*){1,4}$/,
+          'margin-top': /^-?\d+(\.\d+)?(px|%|em|rem|auto)$/,
+          'margin-bottom': /^-?\d+(\.\d+)?(px|%|em|rem|auto)$/,
+          // Border values: 'none' is safest. Allowing full border spec is complex.
+          // Let's allow 'none' and specific border-top for simplicity
+          'border': /^none$/,
+          'border-top': /^\d+(\.\d+)?(px|em|rem)\s+(none|solid|dashed|dotted)\s+(#[a-fA-F0-9]{3,8}|rgba?\([\d\s,.]+\)|[a-zA-Z]+)$/i,
+          // Opacity: number between 0 and 1
+          'opacity': /^(0(\.\d+)?|1(\.0+)?)$/
+        };
+
+        // 2. Parse the incoming style string 'value'
+        const declarations = value
+          .split(';') // Split into individual declarations
+          .map(s => s.trim()) // Trim whitespace
+          .filter(s => s.length > 0); // Remove empty parts
+
+        // Optional: Check if the original value was just whitespace or empty but not truly empty string
+        if (declarations.length === 0 && value.trim() !== '') {
+          console.warn("Invalid HR style format:", value);
+          return false; // Disallow if format is bad (e.g., just ';')
+        }
+        if (declarations.length === 0 && value.trim() === '') {
+          return true; // Allow empty style="" attribute
+        }
+
+
+        // 3. Validate EACH declaration
+        for (const decl of declarations) {
+          const parts = decl.split(':');
+          if (parts.length !== 2) {
+            console.warn("Invalid HR style declaration:", decl);
+            return false; // Invalid format (must be property:value)
+          }
+
+          const prop = parts[0].trim().toLowerCase(); // Normalize property name
+          const val = parts[1].trim(); // Get value
+
+          if (!allowedProperties[prop]) {
+            console.warn(`Disallowed HR style property: ${prop}`);
+            return false; // Property itself is not allowed
+          }
+
+          if (!allowedProperties[prop].test(val)) {
+            console.warn(`Invalid value for HR style property ${prop}:`, val);
+            return false; // Value format is not allowed for this property
+          }
+        }
+
+        // 4. If all declarations passed validation
+        return true;
+      }
+      // --- *** END of HR Style Validation *** ---
     },
   });
 

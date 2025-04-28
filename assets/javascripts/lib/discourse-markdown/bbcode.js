@@ -95,34 +95,54 @@ function setupMarkdownIt(md) {
     wrap: "blockquote.indent",
   });
 
+  // **** TEMPORARY HR TEST RULE ****
+  md.block.bbcode.ruler.push("hr_test_rule", { // Use a unique rule name
+    tag: "hr", // Still target the [hr] tag
+    // Use 'wrap'. This function is called if the parser recognizes [hr]
+    // and creates a default token (likely <p>) for it.
+    // We just modify that token to see if this code runs.
+    wrap: function (token) {
+        // Log if this function is ever called
+        console.log("--- HR WRAP TEST RULE TRIGGERED --- Token:", JSON.stringify(token));
 
-  // **** ADD THE NEW [hr] RULE HERE ****
-  md.block.bbcode.ruler.push("hr", {
-    tag: "hr",
-    replace: function (state, tagInfo /*, content */) {
-
-      // **** ADD A DEBUG LOG HERE ****
-      console.log("--- HR BBCode Rule Matched ---", JSON.stringify(tagInfo));
-
-      
-      let token = state.push('hr', 'hr', 0);
-      token.markup = '[hr]'; // Basic markup ref
-      token.map = [tagInfo.startLine, tagInfo.endLine];
-
-      // *** NEW: Check for and add the style attribute ***
-      // Assumes the BBCode parser puts the value of style="..." into tagInfo.attrs.style
-      if (tagInfo.attrs && tagInfo.attrs.style) {
-        // The actual sanitization happens via the helper.allowList 'custom' function later
-        token.attrs = [['style', tagInfo.attrs.style]];
-        // Potentially update markup reference if needed
-        // token.markup = `[hr style="${tagInfo.attrs.style}"]`;
-      }
-      // *** END NEW ***
-
-      return true;
+        // Add a class to the element (<p>) that contains the [hr] tag
+        // If you inspect the HTML, you should see <p class="hr-tag-was-found">
+        token.attrs = token.attrs || []; // Ensure attrs exists
+        token.attrs.push(["class", "hr-tag-was-found"]);
+        return true; // Indicate success
     }
   });
-  // **** END OF NEW RULE ****
+  // **** END OF TEMPORARY RULE ****
+  
+
+
+  // // **** ADD THE NEW [hr] RULE HERE ****
+  // md.block.bbcode.ruler.push("hr", {
+  //   tag: "hr",
+  //   replace: function (state, tagInfo /*, content */) {
+
+  //     // **** ADD A DEBUG LOG HERE ****
+  //     console.log("--- HR BBCode Rule Matched ---", JSON.stringify(tagInfo));
+
+      
+  //     let token = state.push('hr', 'hr', 0);
+  //     token.markup = '[hr]'; // Basic markup ref
+  //     token.map = [tagInfo.startLine, tagInfo.endLine];
+
+  //     // *** NEW: Check for and add the style attribute ***
+  //     // Assumes the BBCode parser puts the value of style="..." into tagInfo.attrs.style
+  //     if (tagInfo.attrs && tagInfo.attrs.style) {
+  //       // The actual sanitization happens via the helper.allowList 'custom' function later
+  //       token.attrs = [['style', tagInfo.attrs.style]];
+  //       // Potentially update markup reference if needed
+  //       // token.markup = `[hr style="${tagInfo.attrs.style}"]`;
+  //     }
+  //     // *** END NEW ***
+
+  //     return true;
+  //   }
+  // });
+  // // **** END OF NEW RULE ****
 
   ["ot", "edit"].forEach((tag) => {
     md.block.bbcode.ruler.push("ot", {
